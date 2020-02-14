@@ -22,14 +22,15 @@ warnings.filterwarnings('ignore')
 
 model_name = "yolov3" 
 # path to input video
-video_name = "video/67.avi"
+video_name = "67.avi"
+video_path = "video/"
 # border line
 border_line = [(0, 450), (1600, 450)]
 # save or don't the output video to the disk
-writeVideo_flag = False
+writeVideo_flag = True
 root_dir = os.getcwd()
 # detector section
-model_def = "Model_data/yolov3.cfg"
+model_def = "utils/yolov3.cfg"
 weights_path = "Model_data/yolov3.weights"
 # wget -c https://pjreddie.com/media/files/yolov3.weigh
 conf_thres = 0.5
@@ -68,11 +69,12 @@ if __name__ == "__main__":
     
     # human ids model
     model_filename = 'Model_data/mars-small128.pb'
+    # wget https://github.com/Qidian213/deep_sort_yolov3/raw/master/model_data/mars-small128.pb
     encoder = gdet.create_box_encoder(model_filename, batch_size=1)
     metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
     tracker = Tracker(metric)
     
-    cap = cv2.VideoCapture(video_name)
+    cap = cv2.VideoCapture(video_path+video_name)
     show_fh_fw = (800, 600)
     max_hum_w = show_fh_fw[0]/2
     ratio_h_w = (show_fh_fw[0]/img_size, show_fh_fw[1]/img_size)
@@ -86,6 +88,7 @@ if __name__ == "__main__":
         outFile = root_dir+'/video/' + model_name + '_' + video_name
         print("Save out video to file " + outFile)
         out = cv2.VideoWriter(outFile, cv2.VideoWriter_fourcc(*'XVID'), 10, show_fh_fw)
+        # out = cv2.VideoWriter(outFile, cv2.VideoWriter_fourcc(*'MP4V'), 10, show_fh_fw)
     while True:
         r, frame = cap.read()
         if (not r):
