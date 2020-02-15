@@ -12,7 +12,8 @@ import matplotlib.patches as patches
 
 
 def to_cpu(tensor):
-    return tensor.detach().cpu()
+    # return tensor.detach().cpu()
+    return tensor
 
 
 def load_classes(path):
@@ -221,6 +222,7 @@ def bbox_iou(box1, box2, x1y1x2y2=True):
     iou = inter_area / (b1_area + b2_area - inter_area + 1e-16)
 
     return iou
+
 
 
 def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):

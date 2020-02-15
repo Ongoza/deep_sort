@@ -168,7 +168,7 @@ class YOLOLayer(nn.Module):
         pred_boxes[..., 2] = torch.exp(w.data) * self.anchor_w
         pred_boxes[..., 3] = torch.exp(h.data) * self.anchor_h
 
-        print("pred_boxes",pred_boxes.is_cuda)
+        # print("pred_boxes", pred_boxes.is_cuda)
 
         output = torch.cat(
             (
@@ -178,10 +178,12 @@ class YOLOLayer(nn.Module):
             ),
             -1,
         )
-        print("output",output.is_cuda)
+        # print("output",output.is_cuda)
         if targets is None:
+            # print("trgrt")
             return output, 0
         else:
+            # print("else")
             iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tcls, tconf = build_targets(
                 pred_boxes=pred_boxes,
                 pred_cls=pred_cls,
@@ -263,6 +265,10 @@ class Darknet(nn.Module):
                 yolo_outputs.append(x)
             layer_outputs.append(x)
         yolo_outputs = to_cpu(torch.cat(yolo_outputs, 1))
+        # print("sd",yolo_outputs,type(yolo_outputs))
+        # yolo_outputs = torch.cat(yolo_outputs, 1)
+        # print("sd",yolo_outputs.shape,type(yolo_outputs))
+        # print("yolo")
         return yolo_outputs if targets is None else (loss, yolo_outputs)
 
     def load_darknet_weights(self, weights_path):
