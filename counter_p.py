@@ -1,11 +1,19 @@
-#!/usr/bin/pytnon3
-# base ob deep_sort body path tracking project
-from __future__ import division
-import torch
+# 
+# based on deep sort body path tracking project
+# TODO
+# add intersection rule - follow to prev direction
+# add rule for forbidden too fast change locations - update ids
+# add tracking several videos
+# check if calculated a right direction
+
+# from __future__ import division
+import os
 import numpy as np
+import torch
+import torch.nn.functional as F
 import cv2
 import time
-import os
+
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # disable GPU
 from deep_sort import nn_matching
 from deep_sort import preprocessing
@@ -14,20 +22,17 @@ from deep_sort.detection import Detection
 from deep_sort.tracker import Tracker
 from shapely.geometry import LineString, Point
 from utils.models import Darknet
-from utils.parse_config import *
 from utils.utils import non_max_suppression
 import math
-import warnings
-warnings.filterwarnings('ignore')
 
 model_name = "yolov3" 
 # path to input video
-video_name = "67.avi"
+video_name = "39.avi"
 video_path = "video/"
 # border line
-border_line = [(0, 450), (1600, 450)]
+border_line = [(0, 400), (1200, 400)]
 # save or don't the output video to the disk
-writeVideo_flag = True
+writeVideo_flag = False
 root_dir = os.getcwd()
 # detector section
 model_def = "utils/yolov3.cfg"
@@ -76,9 +81,14 @@ if __name__ == "__main__":
     
     cap = cv2.VideoCapture(video_path+video_name)
     show_fh_fw = (800, 600)
+    img_size_start = (1600,1200)
+    
     max_hum_w = show_fh_fw[0]/2
     ratio_h_w = (show_fh_fw[0]/img_size, show_fh_fw[1]/img_size)
-    border_line = [(int(border_line[0][0]/ratio_h_w[0]),int(border_line[0][1]/ratio_h_w[1])),(int(border_line[1][0]/ratio_h_w[0]),int(border_line[1][1]/ratio_h_w[1]))]
+    
+    start_ratio_h_w = (img_size_start[0]/show_fh_fw[0],img_size_start[1]/show_fh_fw[1])
+    border_line = [(int(border_line[0][0]/start_ratio_h_w[0]),int(border_line[0][1]/start_ratio_h_w[1])),(int(border_line[1][0]/start_ratio_h_w[0]),int(border_line[1][1]/start_ratio_h_w[1]))]
+    
     border_line_str = LineString(border_line)
     border_line_a = (border_line[1][0] - border_line[0][0])
     border_line_b = (border_line[1][1] - border_line[0][1])
@@ -89,6 +99,7 @@ if __name__ == "__main__":
         print("Save out video to file " + outFile)
         out = cv2.VideoWriter(outFile, cv2.VideoWriter_fourcc(*'XVID'), 10, show_fh_fw)
         # out = cv2.VideoWriter(outFile, cv2.VideoWriter_fourcc(*'MP4V'), 10, show_fh_fw)
+    
     while True:
         r, frame = cap.read()
         if (not r):
@@ -99,16 +110,27 @@ if __name__ == "__main__":
         start = time.time()
         counter += 1
         frame = cv2.resize(frame, show_fh_fw)
-        # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         fh, fw = frame.shape[:2]       
-        input_imgs = cv2.resize(frame, (img_size, img_size))
-        input_imgs = (np.array([input_imgs])/255.0).astype(np.float16).transpose(0, 3, 1, 2)
-        input_imgs = torch.from_numpy(input_imgs).float().to(device)
+        input_imgs = torch.from_numpy(frame).float().to(device)
+        # input_imgs = cv2.resize(frame, (img_size, img_size))
+        c, h, w = input_imgs.shape
+        dim_diff = np.abs(h - w)
+        pad1, pad2 = dim_diff // 2, dim_diff - dim_diff // 2
+        pad = (0, 0, pad1, pad2) if h <= w else (pad1, pad2, 0, 0)
+        print("pad=",pad1,pad2)
+        # Add padding
+        img = F.pad(img, pad, "constant", value=pad_value)
+        input_imgs = F.interpolate(input_imgs.unsqueeze(0), size=416, mode="nearest").squeeze(0)
+        
+        # input_imgs = (np.array([input_imgs])).astype(np.float32).transpose(0, 3, 1, 2)
+        # /255.0
+        
         with torch.no_grad():
             obj_detec = detector(input_imgs)
             # print(obj_detec.shape)
             obj_detec = non_max_suppression(obj_detec, conf_thres, nms_thres)
-            # print(obj_detec)
+        # print(obj_detec)
         # print(boxes)
         boxs = []
         confs = []

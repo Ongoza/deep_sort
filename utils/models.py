@@ -168,6 +168,8 @@ class YOLOLayer(nn.Module):
         pred_boxes[..., 2] = torch.exp(w.data) * self.anchor_w
         pred_boxes[..., 3] = torch.exp(h.data) * self.anchor_h
 
+        print("pred_boxes",pred_boxes.is_cuda)
+
         output = torch.cat(
             (
                 pred_boxes.view(num_samples, -1, 4) * self.stride,
@@ -176,7 +178,7 @@ class YOLOLayer(nn.Module):
             ),
             -1,
         )
-
+        print("output",output.is_cuda)
         if targets is None:
             return output, 0
         else:
