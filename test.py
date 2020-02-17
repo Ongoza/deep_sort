@@ -1,9 +1,11 @@
+from __future__ import division
 import numpy as np
 import cv2
 from shapely.geometry import LineString
 import math 
 import string
 
+print(10/22)
 def drawBorderLine(a, b):
     length = 40
     vX0 = b[0] - a[0]; vY0 = b[1] - a[1]

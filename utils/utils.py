@@ -232,13 +232,23 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
     Returns detections with shape:
         (x1, y1, x2, y2, object_conf, class_score, class_pred)
     """
-
+    
     # From (center x, center y, width, height) to (x1, y1, x2, y2)
+    # comment for pytorch model embedding
     prediction[..., :4] = xywh2xyxy(prediction[..., :4])
+
     output = [None for _ in range(len(prediction))]
     for image_i, image_pred in enumerate(prediction):
-        # Filter out confidence scores below threshold
+        # take element with index 4 and check if it more then value        
+        # new_arr = []
+        # for x in image_pred:
+        #     if image_pred[0][4]>conf_thres:
+        #         print("dd=",image_pred[0][4])
+        #         new_arr.append(image_pred)
+        # image_pred = new_arr
+        # print("util",image_pred.shape)
         image_pred = image_pred[image_pred[:, 4] >= conf_thres]
+        # print("prediction2 ", prediction[image_i].shape, image_pred.shape, image_pred[:, 4])
         # If none are remaining => process next image
         if not image_pred.size(0):
             continue

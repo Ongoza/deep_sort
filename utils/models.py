@@ -156,7 +156,7 @@ class YOLOLayer(nn.Module):
         h = prediction[..., 3]  # Height
         pred_conf = torch.sigmoid(prediction[..., 4])  # Conf
         pred_cls = torch.sigmoid(prediction[..., 5:])  # Cls pred.
-
+        
         # If grid size does not match current we compute new offsets
         if grid_size != self.grid_size:
             self.compute_grid_offsets(grid_size, cuda=x.is_cuda)
@@ -168,8 +168,6 @@ class YOLOLayer(nn.Module):
         pred_boxes[..., 2] = torch.exp(w.data) * self.anchor_w
         pred_boxes[..., 3] = torch.exp(h.data) * self.anchor_h
 
-        # print("pred_boxes", pred_boxes.is_cuda)
-
         output = torch.cat(
             (
                 pred_boxes.view(num_samples, -1, 4) * self.stride,
@@ -178,12 +176,10 @@ class YOLOLayer(nn.Module):
             ),
             -1,
         )
-        # print("output",output.is_cuda)
         if targets is None:
-            # print("trgrt")
+         
             return output, 0
         else:
-            # print("else")
             iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tcls, tconf = build_targets(
                 pred_boxes=pred_boxes,
                 pred_cls=pred_cls,
@@ -262,9 +258,27 @@ class Darknet(nn.Module):
             elif module_def["type"] == "yolo":
                 x, layer_loss = module[0](x, targets, img_dim)
                 loss += layer_loss
+
+                # print("x=", x.shape)
+                for image_i, image_pred in enumerate(x):
+                    image_pred = image_pred[image_pred[:, 4] >= 0.8]
+                    # print("x",image_pred.shape)
+                # cnt = 0
+                # cnt_i = 0
+                # x = x[x[4][:, 0] >= 0.9]
+                # for i, obj in enumerate(x):
+                #     cnt_i += 1
+                #     if obj[4][0] >= 0.9:
+                #         cnt += 1
+                        # print("obj=", obj[0])
+                        # print("obj=0")
+                        # x = x[0][x[:, 4] >= 0.8]
+                # x = x[0][x[0][:, 4] >= 0.9]
                 yolo_outputs.append(x)
+                # print("cnt",cnt,cnt_i)
             layer_outputs.append(x)
         yolo_outputs = to_cpu(torch.cat(yolo_outputs, 1))
+        # print(yolo_outputs.shape)
         # print("sd",yolo_outputs,type(yolo_outputs))
         # yolo_outputs = torch.cat(yolo_outputs, 1)
         # print("sd",yolo_outputs.shape,type(yolo_outputs))

@@ -7,13 +7,13 @@
 # check if calculated a right direction
 
 # from __future__ import division
-import os
 import numpy as np
-import torch
-import torch.nn.functional as F
 import cv2
 import time
+import os
 
+import torch
+import torchvision.transforms as transforms
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # disable GPU
 from deep_sort import nn_matching
 from deep_sort import preprocessing
@@ -75,7 +75,8 @@ if __name__ == "__main__":
     # human ids model
     model_filename = 'Model_data/mars-small128.pb'
     # wget https://github.com/Qidian213/deep_sort_yolov3/raw/master/model_data/mars-small128.pb
-    encoder = gdet.create_box_encoder(model_filename, batch_size=1)
+    encoder = gdet.create_box_encoder(model_filename, batch_size=20)
+    
     metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
     tracker = Tracker(metric)
     
@@ -99,8 +100,8 @@ if __name__ == "__main__":
         print("Save out video to file " + outFile)
         out = cv2.VideoWriter(outFile, cv2.VideoWriter_fourcc(*'XVID'), 10, show_fh_fw)
         # out = cv2.VideoWriter(outFile, cv2.VideoWriter_fourcc(*'MP4V'), 10, show_fh_fw)
-    
-    while True:
+    with torch.no_grad():
+      while True:
         r, frame = cap.read()
         if (not r):
             print("skip frame ", skip_counter)
@@ -111,31 +112,25 @@ if __name__ == "__main__":
         counter += 1
         frame = cv2.resize(frame, show_fh_fw)
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        fh, fw = frame.shape[:2]       
-        input_imgs = torch.from_numpy(frame).float().to(device)
-        # input_imgs = cv2.resize(frame, (img_size, img_size))
-        c, h, w = input_imgs.shape
-        dim_diff = np.abs(h - w)
-        pad1, pad2 = dim_diff // 2, dim_diff - dim_diff // 2
-        pad = (0, 0, pad1, pad2) if h <= w else (pad1, pad2, 0, 0)
-        print("pad=",pad1,pad2)
-        # Add padding
-        img = F.pad(img, pad, "constant", value=pad_value)
-        input_imgs = F.interpolate(input_imgs.unsqueeze(0), size=416, mode="nearest").squeeze(0)
-        
-        # input_imgs = (np.array([input_imgs])).astype(np.float32).transpose(0, 3, 1, 2)
-        # /255.0
-        
-        with torch.no_grad():
-            obj_detec = detector(input_imgs)
-            # print(obj_detec.shape)
-            obj_detec = non_max_suppression(obj_detec, conf_thres, nms_thres)
+        # fh, fw = frame.shape[:2]       
+        input_imgs = cv2.resize(frame, (img_size, img_size))
+
+        # input picture to Tensor
+        input_imgs = transforms.ToTensor()(input_imgs).to(device).unsqueeze(0)
+        # other way
+        # input_imgs = torch.from_numpy(input_imgs).float().to(device)
+        # input_imgs = input_imgs.unsqueeze(0).permute(0, 3, 1, 2)/255.0#.permute(2, 0, 1)
+
+        obj_detec = detector(input_imgs)
+        print(obj_detec.shape)
+        obj_detec = non_max_suppression(obj_detec, conf_thres, nms_thres)
         # print(obj_detec)
         # print(boxes)
         boxs = []
         confs = []
         for item in obj_detec:
             if item is not None:
+                # print("item ", item)
                 i = 0
                 for x1, y1, x2, y2, conf, cls_conf, cls_pred in item: #classes[int(cls_pred)]
                     if((cls_pred == 0) and (y2-y1 < max_hum_w)):
@@ -146,6 +141,7 @@ if __name__ == "__main__":
                             # person_photo = frame[y1:y2, x1:x2]
         # print(confs)
         features = encoder(frame, boxs)
+        # print("dd=",features.shape, type(features),features[0])
         detections = [Detection(bbox, 1.0, feature) for bbox, feature in zip(boxs, features)]
         # detections = [Detection(bbox, conf, feature) for bbox, conf, feature in zip(boxs, confs, features)]
         # print(detections)

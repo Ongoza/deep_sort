@@ -21,14 +21,11 @@ def _run_in_batches(f, data_dict, out, batch_size):
 
 
 def extract_image_patch(image, bbox, patch_shape):
-    """Extract image patch from bounding box.
-
+    """Extract image patch from bounding box. 
     Parameters
     ----------
-    image : ndarray
-        The full image.
-    bbox : array_like
-        The bounding box in format (x, y, width, height).
+    image : ndarray The full image.
+    bbox : array_like The bounding box in format (x, y, width, height).
     patch_shape : Optional[array_like]
         This parameter can be used to enforce a desired patch shape
         (height, width). First, the `bbox` is adapted to the aspect ratio
@@ -64,6 +61,7 @@ def extract_image_patch(image, bbox, patch_shape):
     sx, sy, ex, ey = bbox
     image = image[sy:ey, sx:ex]
     image = cv2.resize(image, tuple(patch_shape[::-1]))
+    # image = cv2.resize(image, (64,128))
     return image
 
 
@@ -76,11 +74,26 @@ class ImageEncoder(object):
             graph_def = tf.compat.v1.GraphDef()
             with tf.io.gfile.GFile(checkpoint_filename, "rb") as file_handle:
                 graph_def.ParseFromString(file_handle.read())
+                # print("graph_def", graph_def)
                 tf.import_graph_def(graph_def, name="net")
         # print("net/%s:0" % input_name, "net/%s:0" % output_name)
+        # print("===============")
+        # writer = tf.compat.v1.summary.FileWriter("video/", self.d_graph)
+        # from keras.utils.visualize_util import plot
+        # tf.keras.utils.plot_model(self.d_graph, to_file='model.png')
+        # print(self.d_graph.get_operations())
         # for op in self.d_graph.get_operations():
         #     print(str(op.name))
         # print(tf.global_variables())
+        # tf.keras.utils.plot_model(
+        #     self.d_graph,
+        #     to_file='model.png',
+        #     show_shapes=False,
+        #     show_layer_names=True,
+        #     rankdir='TB',
+        #     expand_nested=False,
+        #     dpi=96
+        # )
         self.input_var = self.d_graph.get_tensor_by_name("net/%s:0" % input_name)
         self.output_var = self.d_graph.get_tensor_by_name("net/%s:0" % output_name)
 
