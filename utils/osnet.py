@@ -454,7 +454,7 @@ def init_pretrained_weights(model, key=''):
 
     if not os.path.exists(cached_file):
         print("Can not find model")
-        # gdown.download(pretrained_urls[key], cached_file, quiet=False)
+        gdown.download(pretrained_urls[key], cached_file, quiet=False)
     else:
         state_dict = torch.load(cached_file)
         model_dict = model.state_dict()
