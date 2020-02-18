@@ -60,15 +60,29 @@ def extract_image_patch(image, bbox, patch_shape):
         return None
     sx, sy, ex, ey = bbox
     image = image[sy:ey, sx:ex]
+
     image = cv2.resize(image, tuple(patch_shape[::-1]))
     # image = cv2.resize(image, (64,128))
     return image
 
 
 class ImageEncoder(object):
-
+    
     def __init__(self, checkpoint_filename, input_name="images", output_name="features"):
+        # if os.path.isdir("logs"):
+        #     for filename in os.listdir("logs"):
+        #         file_path = os.path.join("logs", filename)
+        #         try:
+        #             if os.path.isfile(file_path) or os.path.islink(file_path):
+        #                 os.unlink(file_path)
+        #             elif os.path.isdir(file_path):
+        #                 os.remove(file_path)
+        #                 # shutil.rmtree(file_path)
+        #         except Exception as e: print('Failed to delete %s. Reason: %s' % (file_path, e))
+        # print("cleaned logs directory")
+        # tf.logging.info('Things are good!')
         self.d_graph = tf.Graph()
+        self.tbCallBack = tf.keras.callbacks.TensorBoard(log_dir='logs', histogram_freq=1)
         with self.d_graph.as_default():
             self.session = tf.compat.v1.Session()
             graph_def = tf.compat.v1.GraphDef()
@@ -76,24 +90,27 @@ class ImageEncoder(object):
                 graph_def.ParseFromString(file_handle.read())
                 # print("graph_def", graph_def)
                 tf.import_graph_def(graph_def, name="net")
+            # tf.io.write_graph(graph_def, 'my-model', 'testMars.pbtxt')
+        # self.writer = tf.compat.v1.summary.FileWriter('logs', self.d_graph)
+        # summary = tf.compat.v1.Summary(value=[tf.compat.v1.Summary.Value(tag="Test_avg_train", simple_value=100)])
+        # self.writer.add_summary(summary, 1)
         # print("net/%s:0" % input_name, "net/%s:0" % output_name)
         # print("===============")
         # writer = tf.compat.v1.summary.FileWriter("video/", self.d_graph)
         # from keras.utils.visualize_util import plot
         # tf.keras.utils.plot_model(self.d_graph, to_file='model.png')
+        # tf.io.write_graph(self.d_graph, 'video2', 'mars3.pbtxt')
+        
+        # model = tf.saved_model.load(export_dir,tags=None)
+        # print(model.summary())
         # print(self.d_graph.get_operations())
         # for op in self.d_graph.get_operations():
-        #     print(str(op.name))
+        #     name = str(op.name)
+        #     print(name)
+        #     print(self.d_graph.get_tensor_by_name(name))
         # print(tf.global_variables())
-        # tf.keras.utils.plot_model(
-        #     self.d_graph,
-        #     to_file='model.png',
-        #     show_shapes=False,
-        #     show_layer_names=True,
-        #     rankdir='TB',
-        #     expand_nested=False,
-        #     dpi=96
-        # )
+        # print("!!!!start=",input_name,"=dd=",self.d_graph.get_tensor_by_name("net/%s:0" % input_name))
+        # print("!!!!start=",output_name,"=dd=",self.d_graph.get_tensor_by_name("net/%s:0" % output_name))
         self.input_var = self.d_graph.get_tensor_by_name("net/%s:0" % input_name)
         self.output_var = self.d_graph.get_tensor_by_name("net/%s:0" % output_name)
 
@@ -103,10 +120,16 @@ class ImageEncoder(object):
         self.image_shape = self.input_var.get_shape().as_list()[1:]
 
     def __call__(self, data_x, batch_size=16):
+        # print("call", data_x.shape)
         out = np.zeros((len(data_x), self.feature_dim), np.float32)
+        # data_x = tf.convert_to_tensor(data_x, dtype=tf.uint8)
+        # data_xx = tf.constant(data_x)
+        # data_xx = data_x.eval()
+        # data_xx = self.session.run(data_x)
         _run_in_batches(
             lambda x: self.session.run(self.output_var, feed_dict=x),
-            {self.input_var: data_x}, out, batch_size)
+                        {self.input_var: data_x}, out, batch_size)
+        
         return out
 
 
@@ -118,12 +141,14 @@ def create_box_encoder(model_filename, input_name="images", output_name="feature
         image_patches = []
         for box in boxes:
             patch = extract_image_patch(image, box, image_shape[:2])
+            # print("det1=",patch.shape)
             if patch is None:
                 # print("WARNING: Failed to extract image patch: %s." % str(box))
                 patch = np.random.uniform(0., 255., image_shape).astype(np.uint8)
             image_patches.append(patch)
         image_patches = np.asarray(image_patches)
-        return image_encoder(image_patches, batch_size)
+        print("det2=", batch_size,"=",image_patches.shape[0])
+        return image_encoder(image_patches, image_patches.shape[0])
 
     return encoder
 
@@ -190,8 +215,7 @@ def generate_detections(encoder, mot_dir, output_dir, detection_dir=None):
                                in zip(rows, features)]
 
         output_filename = os.path.join(output_dir, "%s.npy" % sequence)
-        np.save(
-            output_filename, np.asarray(detections_out), allow_pickle=False)
+        np.save(output_filename, np.asarray(detections_out), allow_pickle=False)
 
 
 def parse_args():

@@ -11,7 +11,7 @@ import numpy as np
 import cv2
 import time
 import os
-
+import tensorflow as tf
 import torch
 import torchvision.transforms as transforms
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # disable GPU
@@ -74,6 +74,8 @@ if __name__ == "__main__":
     
     # human ids model
     model_filename = 'Model_data/mars-small128.pb'
+    # model_filename = 'video2/mars3.pb'
+
     # wget https://github.com/Qidian213/deep_sort_yolov3/raw/master/model_data/mars-small128.pb
     encoder = gdet.create_box_encoder(model_filename, batch_size=20)
     
@@ -81,27 +83,25 @@ if __name__ == "__main__":
     tracker = Tracker(metric)
     
     cap = cv2.VideoCapture(video_path+video_name)
-    show_fh_fw = (800, 600)
     img_size_start = (1600,1200)
-    
+    show_fh_fw = (img_size, img_size)
     max_hum_w = show_fh_fw[0]/2
     ratio_h_w = (show_fh_fw[0]/img_size, show_fh_fw[1]/img_size)
-    
-    start_ratio_h_w = (img_size_start[0]/show_fh_fw[0],img_size_start[1]/show_fh_fw[1])
+    max_hum_w = torch.tensor(max_hum_w).to(device)
+    start_ratio_h_w = (img_size_start[0]/show_fh_fw[0],img_size_start[1]/(show_fh_fw[1]-104))
     border_line = [(int(border_line[0][0]/start_ratio_h_w[0]),int(border_line[0][1]/start_ratio_h_w[1])),(int(border_line[1][0]/start_ratio_h_w[0]),int(border_line[1][1]/start_ratio_h_w[1]))]
     
     border_line_str = LineString(border_line)
     border_line_a = (border_line[1][0] - border_line[0][0])
     border_line_b = (border_line[1][1] - border_line[0][1])
-    # ratio_h_w = (1,1)
     out = None
     if writeVideo_flag:
         outFile = root_dir+'/video/' + model_name + '_' + video_name
         print("Save out video to file " + outFile)
         out = cv2.VideoWriter(outFile, cv2.VideoWriter_fourcc(*'XVID'), 10, show_fh_fw)
         # out = cv2.VideoWriter(outFile, cv2.VideoWriter_fourcc(*'MP4V'), 10, show_fh_fw)
-    with torch.no_grad():
-      while True:
+    
+    while True:
         r, frame = cap.read()
         if (not r):
             print("skip frame ", skip_counter)
@@ -110,20 +110,20 @@ if __name__ == "__main__":
             else: break
         start = time.time()
         counter += 1
-        frame = cv2.resize(frame, show_fh_fw)
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        # fh, fw = frame.shape[:2]       
-        input_imgs = cv2.resize(frame, (img_size, img_size))
-
+        # frame = cv2.resize(frame, show_fh_fw)
+        # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = cv2.copyMakeBorder( frame, 0, 400, 0, 0, cv2.BORDER_CONSTANT)
+        frame = cv2.resize(frame,(img_size, img_size))
         # input picture to Tensor
-        input_imgs = transforms.ToTensor()(input_imgs).to(device).unsqueeze(0)
+        
+        # frame_cuda = torch.from_numpy(frame).float().to(device) 
+        frame_cuda = transforms.ToTensor()(frame).unsqueeze(0)
         # other way
-        # input_imgs = torch.from_numpy(input_imgs).float().to(device)
-        # input_imgs = input_imgs.unsqueeze(0).permute(0, 3, 1, 2)/255.0#.permute(2, 0, 1)
-
-        obj_detec = detector(input_imgs)
-        print(obj_detec.shape)
-        obj_detec = non_max_suppression(obj_detec, conf_thres, nms_thres)
+        with torch.no_grad():    
+            # input_imgs = input_imgs.unsqueeze(0).permute(0, 3, 1, 2)/255.0#.permute(2, 0, 1)
+            obj_detec = detector(frame_cuda)
+            # print(obj_detec.shape)
+            obj_detec = non_max_suppression(obj_detec, conf_thres, nms_thres)
         # print(obj_detec)
         # print(boxes)
         boxs = []
@@ -134,13 +134,19 @@ if __name__ == "__main__":
                 i = 0
                 for x1, y1, x2, y2, conf, cls_conf, cls_pred in item: #classes[int(cls_pred)]
                     if((cls_pred == 0) and (y2-y1 < max_hum_w)):
-                            boxs.append([int(y1*ratio_h_w[1]), int(x1*ratio_h_w[0]), int(y2*ratio_h_w[1]), int(x2*ratio_h_w[0])])
+                            # boxs.append([int(y1*ratio_h_w[1]), int(x1*ratio_h_w[0]), int(y2*ratio_h_w[1]), int(x2*ratio_h_w[0])])
+                            # boxs.append([int(y1), int(x1), int(y2), int(x2)])
+                            boxs.append([y1, x1, y2, x2])
                             # print(conf, cls_conf)
                             # confs.append(float(conf))
                             # cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 1)
                             # person_photo = frame[y1:y2, x1:x2]
         # print(confs)
+        # frame_tf = tf.convert_to_tensor(frame, dtype=tf.float32)
+
+        s_time = time.time()
         features = encoder(frame, boxs)
+        print("delay",time.time() - s_time )
         # print("dd=",features.shape, type(features),features[0])
         detections = [Detection(bbox, 1.0, feature) for bbox, feature in zip(boxs, features)]
         # detections = [Detection(bbox, conf, feature) for bbox, conf, feature in zip(boxs, confs, features)]
@@ -188,15 +194,14 @@ if __name__ == "__main__":
                 # cv2.arrowedLine(frame,(track.x1[0], track.y1[0]),(x1, y1),(0,255,0),4)
                 cv2.polylines(frame, [track.xy], False, clr, 3)
             else: track.xy = np.array([x1y1])
-            cv2.circle(frame, x1y1, 9, clr, -1)
-            cv2.rectangle(frame, (int(bbox[1]), int(bbox[0])), (int(bbox[3]), int(bbox[2])), clr, 2)
+            cv2.circle(frame, x1y1, 5, clr, -1)
+            cv2.rectangle(frame, (int(bbox[1]), int(bbox[0])), (int(bbox[3]), int(bbox[2])), clr, 1)
             # cv2.putText(frame, str(track.track_id),(int(bbox[1]), int(bbox[0])),0, 5e-3 * 200, (0,255,0),2)
-            cv2.putText(frame, track_name, x1y1, 0, 5e-3 * 200, clr, 1)
+            cv2.putText(frame, track_name, x1y1, 0, 0.4, clr, 1)
         drawBorderLine(border_line[0], border_line[1])
-        cv2.rectangle(frame, (0,10), (800, 100), (20, 20, 20), -1)
-        cv2.putText(frame, "FPS: "+str(round(1./(time.time()-start), 2))+" frame:"+str(counter), (10, 40), 0, 1, (255, 255, 0), 1)
-        cv2.putText(frame, "People in: "+str(len(cnt_people_in)), (10, 80), 0, 1, (52, 235, 240), 1)
-        cv2.putText(frame, " out: "+str(len(cnt_people_out)), (240, 80), 0, 1, (0, 255, 0), 1)
+        cv2.putText(frame, "FPS: "+str(round(1./(time.time()-start), 2))+" frame: "+str(counter), (10, 340), 0, 0.4, (255, 255, 0), 1)
+        cv2.putText(frame, "People in: "+str(len(cnt_people_in)), (10, 360), 0, 0.4, (52, 235, 240), 1)
+        cv2.putText(frame, " out: "+str(len(cnt_people_out)), (43, 376), 0, 0.4, (0, 255, 0), 1)
         # print("end frame")
         cv2.imshow("preview", frame)
         if writeVideo_flag:
