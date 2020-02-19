@@ -168,11 +168,10 @@ class SqueezeNet(nn.Module):
 
     def forward(self, x, return_featuremaps=False):
         f = self.features(x)
-        if return_featuremaps:
-            return f
         v = self.global_avgpool(f)
         v = v.view(v.size(0), -1)
-
+        if return_featuremaps:
+            return v
         if self.fc is not None:
             v = self.fc(v)
 
