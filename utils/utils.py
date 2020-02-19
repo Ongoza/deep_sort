@@ -225,7 +225,7 @@ def bbox_iou(box1, box2, x1y1x2y2=True):
 
 
 
-def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
+def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4, obj_class = 0):
     """
     Removes detections with lower object confidence score than 'conf_thres' and performs
     Non-Maximum Suppression to further filter detections.
@@ -235,10 +235,13 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
     
     # From (center x, center y, width, height) to (x1, y1, x2, y2)
     # comment for pytorch model embedding
+    # print("non_max_suppression", prediction.shape)
     prediction[..., :4] = xywh2xyxy(prediction[..., :4])
-
+    # print("non_max_suppression2", prediction.shape)
     output = [None for _ in range(len(prediction))]
+    # print("one", len(output))
     for image_i, image_pred in enumerate(prediction):
+        # print("one2")
         # take element with index 4 and check if it more then value        
         # new_arr = []
         # for x in image_pred:
@@ -246,8 +249,9 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
         #         print("dd=",image_pred[0][4])
         #         new_arr.append(image_pred)
         # image_pred = new_arr
-        # print("util",image_pred.shape)
+        # print("util", image_pred.shape)
         image_pred = image_pred[image_pred[:, 4] >= conf_thres]
+        # image_class = image_pred[:, 4]
         # print("prediction2 ", prediction[image_i].shape, image_pred.shape, image_pred[:, 4])
         # If none are remaining => process next image
         if not image_pred.size(0):
@@ -260,6 +264,7 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
         detections = torch.cat((image_pred[:, :5], class_confs.float(), class_preds.float()), 1)
         # Perform non-maximum suppression
         keep_boxes = []
+        # print("detections.size(0)", detections.shape)
         while detections.size(0):
             large_overlap = bbox_iou(detections[0, :4].unsqueeze(0), detections[:, :4]) > nms_thres
             label_match = detections[0, -1] == detections[:, -1]
@@ -272,7 +277,7 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
             detections = detections[~invalid]
         if keep_boxes:
             output[image_i] = torch.stack(keep_boxes)
-
+        # print(len(output))
     return output
 
 

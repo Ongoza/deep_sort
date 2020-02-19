@@ -115,33 +115,26 @@ def _create_network(incoming, reuse=None, weight_decay=1e-8):
     # issue 10 https://github.com/nwojke/deep_sort/issues/10
     network = slim.max_pool2d(network, [3, 3], [2, 2], scope="pool1")
 
-    network = residual_block(
-        network, "conv2_1", nonlinearity, conv_weight_init, conv_bias_init,
+    network = residual_block(network, "conv2_1", nonlinearity, conv_weight_init, conv_bias_init,
         conv_regularizer, increase_dim=False, is_first=True)
-    network = residual_block(
-        network, "conv2_3", nonlinearity, conv_weight_init, conv_bias_init,
+    network = residual_block(network, "conv2_3", nonlinearity, conv_weight_init, conv_bias_init,
         conv_regularizer, increase_dim=False)
 
-    network = residual_block(
-        network, "conv3_1", nonlinearity, conv_weight_init, conv_bias_init,
+    network = residual_block(network, "conv3_1", nonlinearity, conv_weight_init, conv_bias_init,
         conv_regularizer, increase_dim=True)
-    network = residual_block(
-        network, "conv3_3", nonlinearity, conv_weight_init, conv_bias_init,
+    network = residual_block(network, "conv3_3", nonlinearity, conv_weight_init, conv_bias_init,
         conv_regularizer, increase_dim=False)
 
-    network = residual_block(
-        network, "conv4_1", nonlinearity, conv_weight_init, conv_bias_init,
+    network = residual_block(network, "conv4_1", nonlinearity, conv_weight_init, conv_bias_init,
         conv_regularizer, increase_dim=True)
-    network = residual_block(
-        network, "conv4_3", nonlinearity, conv_weight_init, conv_bias_init,
+    network = residual_block(network, "conv4_3", nonlinearity, conv_weight_init, conv_bias_init,
         conv_regularizer, increase_dim=False)
 
     feature_dim = network.get_shape().as_list()[-1]
     network = slim.flatten(network)
 
     network = slim.dropout(network, keep_prob=0.6)
-    network = slim.fully_connected(
-        network, feature_dim, activation_fn=nonlinearity,
+    network = slim.fully_connected(network, feature_dim, activation_fn=nonlinearity,
         normalizer_fn=batch_norm_fn, weights_regularizer=fc_regularizer,
         scope="fc1", weights_initializer=fc_weight_init,
         biases_initializer=fc_bias_init)
@@ -195,11 +188,8 @@ def main():
     args = parse_args()
 
     with tf.Session(graph=tf.Graph()) as session:
-        input_var = tf.placeholder(
-            tf.uint8, (None, 128, 64, 3), name="images")
-        image_var = tf.map_fn(
-            lambda x: _preprocess(x), tf.cast(input_var, tf.float32),
-            back_prop=False)
+        input_var = tf.placeholder(tf.uint8, (None, 128, 64, 3), name="images")
+        image_var = tf.map_fn(lambda x: _preprocess(x), tf.cast(input_var, tf.float32), back_prop=False)
 
         factory_fn = _network_factory()
         features, _ = factory_fn(image_var, reuse=None)

@@ -35,8 +35,12 @@ border_line = [(0, 400), (1200, 400)]
 writeVideo_flag = False
 root_dir = os.getcwd()
 # detector section
+# model_def = "utils/yolov3.cfg"
 model_def = "utils/yolov3.cfg"
+
+# weights_path = "Model_data/yolov3.weights"
 weights_path = "Model_data/yolov3.weights"
+
 # wget -c https://pjreddie.com/media/files/yolov3.weigh
 conf_thres = 0.5
 nms_thres = 0.4
@@ -124,7 +128,8 @@ if __name__ == "__main__":
             obj_detec = detector(frame_cuda)
             # print(obj_detec.shape)
             obj_detec = non_max_suppression(obj_detec, conf_thres, nms_thres)
-        # print(obj_detec)
+        if not obj_detec[0] is None:
+            print(len(obj_detec[0]))
         # print(boxes)
         boxs = []
         confs = []
@@ -141,63 +146,63 @@ if __name__ == "__main__":
                             # confs.append(float(conf))
                             # cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 1)
                             # person_photo = frame[y1:y2, x1:x2]
-        # print(confs)
+        # print("box=",boxs)
         # frame_tf = tf.convert_to_tensor(frame, dtype=tf.float32)
-
-        s_time = time.time()
-        features = encoder(frame, boxs)
-        print("delay",time.time() - s_time )
-        # print("dd=",features.shape, type(features),features[0])
-        detections = [Detection(bbox, 1.0, feature) for bbox, feature in zip(boxs, features)]
-        # detections = [Detection(bbox, conf, feature) for bbox, conf, feature in zip(boxs, confs, features)]
-        # print(detections)
-        boxes = np.array([d.tlwh for d in detections]) # w and h replace by x2 y2
-        scores = np.array([d.confidence for d in detections])
-        indices = preprocessing.non_max_suppression(boxes, nms_max_overlap, scores)
-        detections = [detections[i] for i in indices]
-        # print(detections)
-        tracker.predict()
-        tracker.update(detections)
-        for track in tracker.tracks:
-            if(not track.is_confirmed() or track.time_since_update > 1):
-                # if(track.time_since_update > life_frame_limit): track.state = 3 # if missed to long than delete id
-                continue 
-            bbox = track.to_tlwh()
-            x1y1 = (int(bbox[1]+(bbox[3] - bbox[1])/2), int(bbox[0]+(bbox[2] - bbox[0])/2))
-            clr = (255, 255, 0) # default color
-            track_name = str(track.track_id) # default name
-            if(hasattr(track, 'xy')):
-                # detect direction
-                track_line = LineString([track.xy[0], x1y1])
-                if(track_line.intersection(border_line_str)):
-                    # print("intersection!!", track_name)
-                    if(not hasattr(track, 'calculated')):
-                        if(border_line_a * (x1y1[1] - border_line[0][1]) -  border_line_b * (x1y1[0] - border_line[0][0])) > 0:
-                            cnt_people_in[track.track_id] = 0
-                            track.calculated = "in_" + str(len(cnt_people_in)) + "_"
-                            track.color = (52, 235, 240)
-                        else: # 
-                            cnt_people_out[track.track_id] = 0
-                            track.calculated = "out_" + str(len(cnt_people_out)) + "_"
-                            track.color = (0, 255, 0)
-                        track.cross_cnt = path_track
-                    clr = track.color
-                # else:
-                    
-                if(hasattr(track, 'calculated')):
-                    clr = track.color
-                    track_name = track.calculated  + track_name
-                    track.cross_cnt -= 1
-                    if(track.cross_cnt < 1): track.state = 3 # delete from track list
-                track.xy = np.append(track.xy, [x1y1], axis=0)
-                track.xy = track.xy[-path_track:]
-                # cv2.arrowedLine(frame,(track.x1[0], track.y1[0]),(x1, y1),(0,255,0),4)
-                cv2.polylines(frame, [track.xy], False, clr, 3)
-            else: track.xy = np.array([x1y1])
-            cv2.circle(frame, x1y1, 5, clr, -1)
-            cv2.rectangle(frame, (int(bbox[1]), int(bbox[0])), (int(bbox[3]), int(bbox[2])), clr, 1)
-            # cv2.putText(frame, str(track.track_id),(int(bbox[1]), int(bbox[0])),0, 5e-3 * 200, (0,255,0),2)
-            cv2.putText(frame, track_name, x1y1, 0, 0.4, clr, 1)
+        if (True):
+            s_time = time.time()
+            features = encoder(frame, boxs)
+            print("delay",time.time() - s_time )
+            # print("dd=",features.shape, type(features),features[0])
+            detections = [Detection(bbox, 1.0, feature) for bbox, feature in zip(boxs, features)]
+            # detections = [Detection(bbox, conf, feature) for bbox, conf, feature in zip(boxs, confs, features)]
+            # print(detections)
+            boxes = np.array([d.tlwh for d in detections]) # w and h replace by x2 y2
+            scores = np.array([d.confidence for d in detections])
+            indices = preprocessing.non_max_suppression(boxes, nms_max_overlap, scores)
+            detections = [detections[i] for i in indices]
+            # print(detections)
+            tracker.predict()
+            tracker.update(detections)
+            for track in tracker.tracks:
+                if(not track.is_confirmed() or track.time_since_update > 1):
+                    # if(track.time_since_update > life_frame_limit): track.state = 3 # if missed to long than delete id
+                    continue 
+                bbox = track.to_tlwh()
+                x1y1 = (int(bbox[1]+(bbox[3] - bbox[1])/2), int(bbox[0]+(bbox[2] - bbox[0])/2))
+                clr = (255, 255, 0) # default color
+                track_name = str(track.track_id) # default name
+                if(hasattr(track, 'xy')):
+                    # detect direction
+                    track_line = LineString([track.xy[0], x1y1])
+                    if(track_line.intersection(border_line_str)):
+                        # print("intersection!!", track_name)
+                        if(not hasattr(track, 'calculated')):
+                            if(border_line_a * (x1y1[1] - border_line[0][1]) -  border_line_b * (x1y1[0] - border_line[0][0])) > 0:
+                                cnt_people_in[track.track_id] = 0
+                                track.calculated = "in_" + str(len(cnt_people_in)) + "_"
+                                track.color = (52, 235, 240)
+                            else: # 
+                                cnt_people_out[track.track_id] = 0
+                                track.calculated = "out_" + str(len(cnt_people_out)) + "_"
+                                track.color = (0, 255, 0)
+                            track.cross_cnt = path_track
+                        clr = track.color
+                    # else:
+                        
+                    if(hasattr(track, 'calculated')):
+                        clr = track.color
+                        track_name = track.calculated  + track_name
+                        track.cross_cnt -= 1
+                        if(track.cross_cnt < 1): track.state = 3 # delete from track list
+                    track.xy = np.append(track.xy, [x1y1], axis=0)
+                    track.xy = track.xy[-path_track:]
+                    # cv2.arrowedLine(frame,(track.x1[0], track.y1[0]),(x1, y1),(0,255,0),4)
+                    cv2.polylines(frame, [track.xy], False, clr, 3)
+                else: track.xy = np.array([x1y1])
+                cv2.circle(frame, x1y1, 5, clr, -1)
+                cv2.rectangle(frame, (int(bbox[1]), int(bbox[0])), (int(bbox[3]), int(bbox[2])), clr, 1)
+                # cv2.putText(frame, str(track.track_id),(int(bbox[1]), int(bbox[0])),0, 5e-3 * 200, (0,255,0),2)
+                cv2.putText(frame, track_name, x1y1, 0, 0.4, clr, 1)
         drawBorderLine(border_line[0], border_line[1])
         cv2.putText(frame, "FPS: "+str(round(1./(time.time()-start), 2))+" frame: "+str(counter), (10, 340), 0, 0.4, (255, 255, 0), 1)
         cv2.putText(frame, "People in: "+str(len(cnt_people_in)), (10, 360), 0, 0.4, (52, 235, 240), 1)
